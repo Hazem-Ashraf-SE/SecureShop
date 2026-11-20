@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SecureShop — E-Commerce Platform (Task 1: Functional Requirements Build)
 
 **SecureShop** is a modular e-commerce platform built with **Python 3.11+**, **Flask**, **SQLAlchemy**, **Jinja2**, and **Bootstrap 5** in accordance with [Requirements.md](Requirements.md) and [SystemComponents.md](SystemComponents.md).
@@ -55,3 +56,7 @@ python run.py
 ```
 
 The server listens on `http://127.0.0.1:5000` (configurable via `HOST`, `PORT`, `DATABASE_URL`, and `SECRET_KEY` environment variables in `.env.example` for upcoming Docker/DevOps containerization).
+=======
+# SecureShop
+E-Commerce Website for Software Security Course
+>>>>>>> 748dea15196e4cba699b23c77cf2fa115eab4ec7
