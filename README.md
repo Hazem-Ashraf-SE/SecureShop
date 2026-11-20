@@ -39,10 +39,10 @@
 
 ## 2. Pre-Seeded Demo Accounts & Coupons
 
-| Role | Username | Password | Initial Store Credit |
-| :--- | :--- | :--- | :--- |
-| **Administrator** | `admin` | `AdminPass123!` | `$2,500.00` |
-| **Customer** | `alice` | `CustomerPass123!` | `$750.00` |
+| Role |
+| :--- |
+| **Administrator** |
+| **Customer** |
 
 - **Pre-seeded Coupons**: `WELCOME10` (10% off), `SAVE25` ($25.00 fixed off), `VIP15` (15% off).
 - **Offline Email & 2FA Testing**: Click the **Mail Outbox** tab in the top navigation bar (`/auth/outbox`) to view account activation links and 6-digit 2FA login codes without needing an external mail server.
