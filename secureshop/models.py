@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from werkzeug.security import generate_password_hash, check_password_hash
+import bcrypt
+from werkzeug.security import check_password_hash
 from secureshop.extensions import db
 
 
@@ -10,7 +11,7 @@ def utcnow():
 
 
 class User(db.Model):
-    """Core Data Entity: User (FR-1, FR-6, FR-7)."""
+    """Core Data Entity: User (FR-1, FR-6, FR-7 & Hardened Security Controls)."""
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -28,35 +29,89 @@ class User(db.Model):
     verification_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
     pending_email = db.Column(db.String(254), nullable=True)
 
-    # FR-1.3 Multi-Factor Authentication (2FA OTP & TOTP secret)
+    # FR-1.3 & SR-6 Multi-Factor Authentication (6-digit OTP + TOTP + Replay & Brute-Force Protection)
     two_fa_enabled = db.Column(db.Boolean, nullable=False, default=True)
     totp_secret = db.Column(db.String(64), nullable=True)
-    current_otp_code = db.Column(db.String(16), nullable=True)
+    current_otp_hash = db.Column(db.String(128), nullable=True)  # Stored hashed, never plaintext
     otp_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    last_used_totp_step = db.Column(db.Integer, nullable=True)  # Prevents TOTP replay within 30s window
+
+    # Brute-Force & Lockout Tracking (SR-6 / Lab 1.5 / 4.8)
+    failed_login_attempts = db.Column(db.Integer, nullable=False, default=0)
+    login_locked_until = db.Column(db.DateTime(timezone=True), nullable=True)
+    failed_otp_attempts = db.Column(db.Integer, nullable=False, default=0)
+    otp_locked_until = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # Behavioral Keystroke & Context-Aware Login Defense (Lab 4 & Lab 5)
+    # Only aggregate timing statistics are stored; NEVER raw typed characters!
+    keystroke_mean_ms = db.Column(db.Float, nullable=True)
+    keystroke_std_ms = db.Column(db.Float, nullable=True)
+    keystroke_sample_count = db.Column(db.Integer, nullable=False, default=0)
+    allowed_region = db.Column(db.String(64), nullable=True, default="LOCAL")
+    last_login_ip = db.Column(db.String(64), nullable=True)
+    last_login_region = db.Column(db.String(64), nullable=True)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     cart_items = db.relationship("CartItem", backref="user", lazy=True, cascade="all, delete-orphan")
     orders = db.relationship("Order", backref="user", lazy=True, order_by="Order.created_at.desc()")
     sessions = db.relationship("UserSession", backref="user", lazy=True, cascade="all, delete-orphan")
+    passkeys = db.relationship("WebAuthnCredential", backref="user", lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
-        self.password_hash = generate_password_hash(password)
+        """SR-7 / Lab 2.6: Salted, slow bcrypt hashing (cost factor 12)."""
+        salt = bcrypt.gensalt(rounds=12)
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
     def check_password(self, password: str) -> bool:
+        """Verifies password using constant-time bcrypt check (with fallback for legacy hashes)."""
+        if not self.password_hash:
+            return False
+        if self.password_hash.startswith(("$2a$", "$2b$", "$2y$")):
+            try:
+                return bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8"))
+            except ValueError:
+                return False
         return check_password_hash(self.password_hash, password)
 
 
+class WebAuthnCredential(db.Model):
+    """Lab 5 (2.12): Server-bound Ed25519 FIDO2/Passkey credential storage."""
+    __tablename__ = "webauthn_credentials"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    credential_id = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    public_key_pem = db.Column(db.Text, nullable=False)
+    sign_count = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class UserSession(db.Model):
-    """FR-1.4 Server-side tracked session identifier."""
+    """FR-1.4 & SR-6: Server-side tracked session identifier."""
     __tablename__ = "user_sessions"
 
     id = db.Column(db.Integer, primary_key=True)
     session_token = db.Column(db.String(128), unique=True, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ip_address = db.Column(db.String(64), nullable=True)
+    user_agent_hash = db.Column(db.String(64), nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+
+
+class SecurityAuditLog(db.Model):
+    """Audit trail for Blue Team detection (ATO, Bot/Paste, Imposter, Region/Off-hours, RBAC)."""
+    __tablename__ = "security_audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    event_type = db.Column(db.String(64), nullable=False, index=True)
+    severity = db.Column(db.String(16), nullable=False, default="INFO")  # INFO | WARNING | HIGH | CRITICAL
+    username = db.Column(db.String(64), nullable=True, index=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    details = db.Column(db.Text, nullable=False)  # Never stores passwords or raw keystrokes!
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class Product(db.Model):
@@ -75,7 +130,7 @@ class Product(db.Model):
 
 
 class CartItem(db.Model):
-    """Core Data Entity: Cart / CartItem (FR-3)."""
+    """Core Data Entity: Cart / CartItem (FR-3, SR-1)."""
     __tablename__ = "cart_items"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -88,14 +143,14 @@ class CartItem(db.Model):
 
     @property
     def line_total(self) -> Decimal:
-        """FR-3.3 Dynamic line-item total from authoritative server-side product pricing."""
-        if not self.product:
+        """FR-3.3 & SR-1: Dynamic line-item total strictly from authoritative server-side product pricing."""
+        if not self.product or self.quantity <= 0:
             return Decimal("0.00")
         return (Decimal(str(self.product.price)) * Decimal(self.quantity)).quantize(Decimal("0.01"))
 
 
 class Coupon(db.Model):
-    """Core Data Entity: Coupon (FR-4, FR-7.3)."""
+    """Core Data Entity: Coupon (FR-4, FR-7.3, SR-2)."""
     __tablename__ = "coupons"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -112,7 +167,7 @@ class Coupon(db.Model):
 
 
 class CouponUsage(db.Model):
-    """Tracks coupon redemptions per user and order."""
+    """SR-2: Tracks coupon redemptions per user and order (prevents replay/alternating stacking)."""
     __tablename__ = "coupon_usages"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -135,16 +190,17 @@ class NewsletterSubscriber(db.Model):
 
 
 class Order(db.Model):
-    """Core Data Entity: Order (FR-5, FR-6.2)."""
+    """Core Data Entity: Order (FR-5, FR-6.2, SR-5 State Machine)."""
     __tablename__ = "orders"
 
     id = db.Column(db.String(64), primary_key=True, default=lambda: str(uuid.uuid4()))
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    status = db.Column(db.String(32), nullable=False, default="PAID")  # 'PENDING' | 'PAID' | 'CANCELLED'
+    # SR-5 Strict State Machine: PENDING_PAYMENT -> PAID -> CONFIRMED (or CANCELLED)
+    status = db.Column(db.String(32), nullable=False, default="PENDING_PAYMENT")
     subtotal_amount = db.Column(db.Numeric(10, 2), nullable=False)
     discount_amount = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     total_paid = db.Column(db.Numeric(10, 2), nullable=False)
-    applied_coupons = db.Column(db.Text, nullable=False, default="[]")  # JSON list of coupon codes
+    applied_coupons = db.Column(db.Text, nullable=False, default="[]")  # JSON list of unique coupon codes
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     items = db.relationship("OrderItem", backref="order", lazy="joined", cascade="all, delete-orphan")

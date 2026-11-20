@@ -10,6 +10,7 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('auth.register') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Username</label>
                         <input type="text" name="username" class="form-control" placeholder="e.g. jdoe" maxlength="64" required>

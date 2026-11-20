@@ -45,6 +45,7 @@
 
                 {% if product.stock_quantity > 0 %}
                 <form method="POST" action="{{ url_for('cart.add_to_cart', product_id=product.id) }}" class="row g-2 align-items-center">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="col-auto">
                         <label class="col-form-label fw-semibold">Quantity:</label>
                     </div>

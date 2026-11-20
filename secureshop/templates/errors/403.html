@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Access Denied (403) — SecureShop{% endblock %}
+{% block content %}
+<div class="card border-0 shadow-sm p-5 text-center my-4">
+    <h1 class="display-4 fw-bold text-danger">403</h1>
+    <h4 class="mb-2">Access Denied</h4>
+    <p class="text-muted mb-4">You do not have permission to access this resource or perform this action.</p>
+    <div><a href="{{ url_for('shop.catalogue') }}" class="btn btn-primary">Return to Catalogue</a></div>
+</div>
+{% endblock %}

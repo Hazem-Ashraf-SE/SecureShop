@@ -103,6 +103,7 @@
                         </a>
                         {% if product.stock_quantity > 0 %}
                         <form method="POST" action="{{ url_for('cart.add_to_cart', product_id=product.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="quantity" value="1">
                             <button type="submit" class="btn btn-primary btn-sm">
                                 <i class="bi bi-cart-plus me-1"></i>Add

@@ -18,6 +18,7 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('account.update_profile') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label small text-muted fw-semibold">Username (Immutable)</label>
                         <input type="text" class="form-control bg-light" value="{{ current_user.username }}" readonly disabled>
@@ -72,6 +73,7 @@
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('account.change_password') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Current Password</label>
                         <input type="password" name="current_password" class="form-control" required>
