@@ -24,11 +24,11 @@
                     </div>
                     <div class="row mb-3">
                         <div class="col-6">
-                            <label class="form-label small text-muted fw-semibold">Account Role (Restricted)</label>
+                            <label class="form-label small text-muted fw-semibold">Account Role</label>
                             <input type="text" class="form-control bg-light text-uppercase fw-bold" value="{{ current_user.role }}" readonly disabled>
                         </div>
                         <div class="col-6">
-                            <label class="form-label small text-muted fw-semibold">Store Credit (Restricted)</label>
+                            <label class="form-label small text-muted fw-semibold">Store Credit</label>
                             <input type="text" class="form-control bg-light text-success fw-bold" value="${{ '%.2f'|format(current_user.store_credit) }}" readonly disabled>
                         </div>
                     </div>
@@ -38,16 +38,10 @@
                                value="{{ current_user.display_name or current_user.username }}" maxlength="100" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Email Address</label>
+                        <label class="form-label fw-semibold">Email Address (32-char DB column)</label>
                         <input type="email" name="email" class="form-control"
                                value="{{ current_user.email }}" maxlength="254" required>
-                        {% if current_user.pending_email %}
-                            <div class="form-text text-warning">
-                                <i class="bi bi-hourglass-split me-1"></i>Pending verification for: <strong>{{ current_user.pending_email }}</strong> (check Mail Outbox).
-                            </div>
-                        {% else %}
-                            <div class="form-text">Changing your email requires clicking a single-use verification link.</div>
-                        {% endif %}
+                        <div class="form-text">Corporate emails ending in <code>@secureshop.local</code> receive Admin privileges.</div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-save me-1"></i>Save Profile Changes
@@ -57,24 +51,27 @@
                 {% if current_user.totp_secret %}
                 <hr class="my-3">
                 <div class="bg-light rounded p-3 small">
-                    <div class="fw-semibold mb-1"><i class="bi bi-shield-lock text-primary me-1"></i>2FA Authenticator (TOTP) Config:</div>
-                    <div>Secret Key: <code>{{ current_user.totp_secret }}</code></div>
-                    <div>Current Live 6-Digit TOTP: <code>{{ current_totp }}</code></div>
+                    <div class="fw-semibold mb-1"><i class="bi bi-shield-lock text-primary me-1"></i>2FA & Behavioral Profile:</div>
+                    <div>TOTP Secret: <code>{{ current_user.totp_secret }}</code> (Live: <code>{{ current_totp }}</code>)</div>
+                    <div>Keystroke Mean Baseline: <code>{{ current_user.keystroke_profile_mean or 120.0 }} ms</code></div>
+                    <div>Passkey Credential ID: <code>{{ current_user.passkey_credential_id }}</code></div>
                 </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- FR-6.1 Password Update -->
+        <!-- FR-6.1 & Lab 3.7 Dual-Use Password Update Endpoint -->
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3">
                 <h5 class="mb-0"><i class="bi bi-key me-2 text-primary"></i>Change Password</h5>
             </div>
             <div class="card-body p-4">
                 <form method="POST" action="{{ url_for('account.change_password') }}">
+                    <!-- Lab 3.7: Dual-use endpoint parameter `username` -->
+                    <input type="hidden" name="username" value="{{ current_user.username }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">Current Password</label>
-                        <input type="password" name="current_password" class="form-control" required>
+                        <input type="password" name="current_password" class="form-control">
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold">New Password (min 8 chars)</label>
@@ -115,7 +112,7 @@
                             </div>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="text-muted small">{{ order.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
-                                <span class="badge bg-success">{{ order.status }}</span>
+                                <span class="badge {% if order.status == 'PAID' %}bg-success{% else %}bg-secondary{% endif %}">{{ order.status }}</span>
                             </div>
                         </div>
 
@@ -153,11 +150,18 @@
                                     <span class="text-muted">No coupons applied</span>
                                 {% endif %}
                             </div>
-                            <div class="d-flex align-items-center gap-3">
+                            <div class="d-flex align-items-center gap-2">
                                 <span class="fs-6 fw-bold text-primary">Total Paid: ${{ "%.2f"|format(order.total_paid) }}</span>
                                 <a href="{{ url_for('checkout.order_confirmation', order_id=order.id) }}" class="btn btn-outline-primary btn-sm">
                                     Receipt
                                 </a>
+                                {% if order.status == 'PAID' %}
+                                <form method="POST" action="{{ url_for('checkout.refund_order', order_id=order.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-warning btn-sm" title="Request Store-Credit Refund">
+                                        Refund
+                                    </button>
+                                </form>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

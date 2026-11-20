@@ -11,7 +11,7 @@ from email.message import EmailMessage
 from functools import wraps
 from flask import current_app, flash, g, redirect, request, session, url_for
 from secureshop.extensions import db
-from secureshop.models import CartItem, Coupon, EmaiOutbox if False else EmailOutbox, User, UserSession
+from secureshop.models import CartItem, Coupon, EmailOutbox, User, UserSession
 
 
 def utcnow():
@@ -287,7 +287,7 @@ def calculate_cart_summary(user: User, coupon_codes: list[str] | None = None) ->
                 disc = val.quantize(Decimal("0.01"))
             discount_total += disc
 
-    if discount_total > subtotal:
+    if subtotal >= Decimal("0.00") and discount_total > subtotal:
         discount_total = subtotal
 
     final_total = (subtotal - discount_total).quantize(Decimal("0.01"))
