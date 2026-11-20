@@ -5,7 +5,7 @@ from secureshop.utils import generate_totp_secret
 
 
 def seed_initial_data() -> None:
-    """Seeds default users, product catalogue (including Gift Card for Lab 3.10), and coupons."""
+    """Seeds default users, product catalogue, and promotional coupons if database is empty."""
     if User.query.first() is None:
         admin = User(
             username="admin",
@@ -16,26 +16,18 @@ def seed_initial_data() -> None:
             is_verified=True,
             two_fa_enabled=True,
             totp_secret=generate_totp_secret(),
-            keystroke_profile_mean=115.0,
-            allowed_region="US-EAST",
-            passkey_credential_id="cred-admin-01",
-            passkey_public_key="pubkey-ed25519-admin",
         )
         admin.set_password("AdminPass123!")
 
         alice = User(
             username="alice",
-            email="alice@customer.local",
+            email="alice@secureshop.local",
             display_name="Alice Customer",
             role="customer",
             store_credit=Decimal("750.00"),
             is_verified=True,
             two_fa_enabled=True,
             totp_secret=generate_totp_secret(),
-            keystroke_profile_mean=125.0,
-            allowed_region="US-EAST",
-            passkey_credential_id="cred-alice-01",
-            passkey_public_key="pubkey-ed25519-alice",
         )
         alice.set_password("CustomerPass123!")
 
@@ -105,16 +97,16 @@ def seed_initial_data() -> None:
                 image_url="https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=600&q=80",
             ),
             Product(
-                name="SecureShop Store-Credit Gift Card ($100)",
-                category="Gift Cards",
+                name="SmartCard Air-Gapped Cold Wallet",
+                category="Hardware Security",
                 description=(
-                    "Instant $100.00 store-credit top-up gift card! Automatically credits $100.00 face value "
-                    "to your account balance upon purchase completion."
+                    "EAL6+ certified secure element smartcard for air-gapped cryptographic key signing "
+                    "and offline secret backup."
                 ),
-                specifications="Face Value: $100.00 Store Credit | Redemption: Automatic on Checkout (Lab 3.10 Infinite Money Target)",
-                price=Decimal("100.00"),
-                stock_quantity=500,
-                image_url="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=600&q=80",
+                specifications="Secure Element: CC EAL6+ | Connectivity: Air-Gapped QR & NFC | Battery: Passive / Battery-free",
+                price=Decimal("79.99"),
+                stock_quantity=25,
+                image_url="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80",
             ),
             Product(
                 name="USB Data Blocker & Power-Only Defender (3-Pack)",
@@ -125,7 +117,7 @@ def seed_initial_data() -> None:
                 ),
                 specifications="Max Power: 240W USB-PD Pass-through | Data Pins: Physically Disconnected | Pack Size: 3 Adapters",
                 price=Decimal("22.00"),
-                stock_quantity=0,
+                stock_quantity=0,  # Out-of-stock item to demonstrate FR-2.3 availability filter
                 image_url="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=600&q=80",
             ),
         ]
@@ -153,13 +145,13 @@ def seed_initial_data() -> None:
                 description="$25.00 fixed discount on security hardware",
             ),
             Coupon(
-                code="VIP30",
+                code="VIP15",
                 discount_type="percent",
-                discount_value=Decimal("30.00"),
+                discount_value=Decimal("15.00"),
                 is_active=True,
-                max_uses_per_user=5,
-                total_usage_limit=200,
-                description="30% off VIP member discount (stackable with Gift Cards in Lab 3.10)",
+                max_uses_per_user=2,
+                total_usage_limit=50,
+                description="15% off VIP member discount",
             ),
         ]
         db.session.add_all(sample_coupons)

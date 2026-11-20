@@ -12,25 +12,10 @@
             </p>
         </div>
         <div class="col-md-4 text-md-end mt-3 mt-md-0">
-            <span class="badge bg-primary px-3 py-2">Promo Code: WELCOME10 (10% OFF) &bull; VIP30 (30% OFF)</span>
+            <span class="badge bg-primary px-3 py-2">Promo Code: WELCOME10 (10% OFF)</span>
         </div>
     </div>
 </div>
-
-<!-- Lab 4.3 Reflected XSS & Lab 4.4 SQLi / Error Feedback Banner -->
-{% if filters.q %}
-<div class="alert alert-secondary py-2 small">
-    Showing search results for query: <strong>{{ filters.q | safe }}</strong>
-    {% if raw_sql_executed %}
-        <!-- DEBUG_SQL: {{ raw_sql_executed | safe }} -->
-    {% endif %}
-</div>
-{% endif %}
-{% if sql_error_leak %}
-<div class="alert alert-danger small">
-    <strong>Database Error (Lab 4.4 / 4.11):</strong> <code>{{ sql_error_leak }}</code>
-</div>
-{% endif %}
 
 <!-- FR-2.3 Search & Filtering Bar -->
 <div class="card border-0 shadow-sm mb-4">
@@ -106,10 +91,10 @@
                 </div>
                 <h5 class="card-title">
                     <a href="{{ url_for('shop.product_detail', product_id=product.id) }}" class="text-decoration-none text-dark">
-                        {{ product.name | safe }}
+                        {{ product.name }}
                     </a>
                 </h5>
-                <p class="card-text text-muted small flex-grow-1">{{ product.description | safe }}</p>
+                <p class="card-text text-muted small flex-grow-1">{{ product.description|truncate(115) }}</p>
                 <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
                     <span class="fs-5 fw-bold text-primary">${{ "%.2f"|format(product.price) }}</span>
                     <div class="d-flex gap-2">
@@ -119,8 +104,6 @@
                         {% if product.stock_quantity > 0 %}
                         <form method="POST" action="{{ url_for('cart.add_to_cart', product_id=product.id) }}">
                             <input type="hidden" name="quantity" value="1">
-                            <!-- Lab 1.1: Excessive Trust in Client-Side Controls (Hidden Price Field) -->
-                            <input type="hidden" name="price" value="{{ '%.2f'|format(product.price) }}">
                             <button type="submit" class="btn btn-primary btn-sm">
                                 <i class="bi bi-cart-plus me-1"></i>Add
                             </button>

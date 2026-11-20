@@ -1,2 +1,0 @@
-TitanKey FIDO2 Hardware Security Key Datasheet
-Protocols: FIDO2, WebAuthn, U2F, TOTP

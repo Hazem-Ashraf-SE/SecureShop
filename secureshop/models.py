@@ -10,7 +10,7 @@ def utcnow():
 
 
 class User(db.Model):
-    """Core Data Entity: User (FR-1, FR-6, FR-7 & Phase 2 Lab Scenarios)."""
+    """Core Data Entity: User (FR-1, FR-6, FR-7)."""
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -18,8 +18,6 @@ class User(db.Model):
     email = db.Column(db.String(254), unique=True, nullable=False, index=True)
     display_name = db.Column(db.String(100), nullable=True)
     password_hash = db.Column(db.String(256), nullable=False)
-    # Lab 4 (2.6): Plaintext / Weak Password Storage column for classroom simulation
-    plaintext_password = db.Column(db.String(128), nullable=True)
     role = db.Column(db.String(20), nullable=False, default="customer")  # 'customer' | 'admin'
     store_credit = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("500.00"))
     is_verified = db.Column(db.Boolean, nullable=False, default=False)
@@ -30,33 +28,22 @@ class User(db.Model):
     verification_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
     pending_email = db.Column(db.String(254), nullable=True)
 
-    # FR-1.3 Multi-Factor Authentication (4-Digit OTP & TOTP secret)
+    # FR-1.3 Multi-Factor Authentication (2FA OTP & TOTP secret)
     two_fa_enabled = db.Column(db.Boolean, nullable=False, default=True)
     totp_secret = db.Column(db.String(64), nullable=True)
     current_otp_code = db.Column(db.String(16), nullable=True)
     otp_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
-
-    # Lab 4 & Lab 5: Behavioral Keystroke & Geolocation / Passkey attributes
-    keystroke_profile_mean = db.Column(db.Float, nullable=True, default=120.0)
-    allowed_region = db.Column(db.String(64), nullable=True, default="US-EAST")
-    passkey_credential_id = db.Column(db.String(128), nullable=True)
-    passkey_public_key = db.Column(db.String(256), nullable=True)
 
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
     cart_items = db.relationship("CartItem", backref="user", lazy=True, cascade="all, delete-orphan")
     orders = db.relationship("Order", backref="user", lazy=True, order_by="Order.created_at.desc()")
     sessions = db.relationship("UserSession", backref="user", lazy=True, cascade="all, delete-orphan")
-    reviews = db.relationship("ProductReview", backref="user", lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
-        # Lab 4 (2.6): Store weak/plaintext representation alongside hash for lab inspection
-        self.plaintext_password = password
 
     def check_password(self, password: str) -> bool:
-        if self.plaintext_password and self.plaintext_password == password:
-            return True
         return check_password_hash(self.password_hash, password)
 
 
@@ -84,51 +71,27 @@ class Product(db.Model):
     stock_quantity = db.Column(db.Integer, nullable=False, default=0)
     category = db.Column(db.String(80), nullable=False, index=True)
     image_url = db.Column(db.String(500), nullable=False)
-    datasheet_filename = db.Column(db.String(120), nullable=True, default="titankey_spec.txt")
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
-
-    reviews = db.relationship("ProductReview", backref="product", lazy=True, cascade="all, delete-orphan")
-
-
-class ProductReview(db.Model):
-    """Product reviews for Stored XSS & Client Input Validation labs."""
-    __tablename__ = "product_reviews"
-
-    id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    author_name = db.Column(db.String(100), nullable=False)
-    rating = db.Column(db.Integer, nullable=False, default=5)
-    comment = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class CartItem(db.Model):
-    """Core Data Entity: Cart / CartItem (FR-3 & Lab 1.1 Client-Side Price Control)."""
+    """Core Data Entity: Cart / CartItem (FR-3)."""
     __tablename__ = "cart_items"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     product_id = db.Column(db.Integer, db.ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
-    # Lab 1.1 / 3.1: Excessive Trust in Client-Side Controls (stores client-submitted unit_price)
-    unit_price = db.Column(db.Numeric(10, 2), nullable=True)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
 
     product = db.relationship("Product", lazy="joined")
 
     @property
-    def effective_unit_price(self) -> Decimal:
-        if self.unit_price is not None:
-            return Decimal(str(self.unit_price)).quantize(Decimal("0.01"))
-        if self.product:
-            return Decimal(str(self.product.price)).quantize(Decimal("0.01"))
-        return Decimal("0.00")
-
-    @property
     def line_total(self) -> Decimal:
-        """Calculates line-item total using client-supplied unit_price if present."""
-        return (self.effective_unit_price * Decimal(self.quantity)).quantize(Decimal("0.01"))
+        """FR-3.3 Dynamic line-item total from authoritative server-side product pricing."""
+        if not self.product:
+            return Decimal("0.00")
+        return (Decimal(str(self.product.price)) * Decimal(self.quantity)).quantize(Decimal("0.01"))
 
 
 class Coupon(db.Model):
@@ -201,24 +164,6 @@ class OrderItem(db.Model):
     @property
     def line_total(self) -> Decimal:
         return (Decimal(str(self.unit_price_at_purchase)) * Decimal(self.quantity)).quantize(Decimal("0.01"))
-
-
-class KeystrokeTelemetryLog(db.Model):
-    """Lab 4 (2.1 - 2.5): Stores behavioral keystroke telemetry & raw keystrokes."""
-    __tablename__ = "keystroke_telemetry_logs"
-
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), nullable=False, index=True)
-    raw_typed_characters = db.Column(db.Text, nullable=True)  # Lab 2.5: Sensitive Keystroke Data Exposure
-    intervals_json = db.Column(db.Text, nullable=True)
-    mean_interval_ms = db.Column(db.Float, nullable=True)
-    is_pasted = db.Column(db.Boolean, nullable=False, default=False)
-    classification = db.Column(db.String(64), nullable=False, default="normal")
-    client_ip = db.Column(db.String(64), nullable=True)
-    region = db.Column(db.String(64), nullable=True)
-    gps_coords = db.Column(db.String(64), nullable=True)
-    login_hour_utc = db.Column(db.Integer, nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class EmailOutbox(db.Model):

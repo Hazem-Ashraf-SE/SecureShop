@@ -27,7 +27,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Product</th>
-                            <th>Unit Price</th>
+                            <th>Unit Price (Authoritative)</th>
                             <th style="width: 170px;">Quantity</th>
                             <th>Line Total</th>
                             <th></th>
@@ -43,14 +43,13 @@
                                         <a href="{{ url_for('shop.product_detail', product_id=item.product.id) }}" class="fw-semibold text-decoration-none text-dark">
                                             {{ item.product.name }}
                                         </a>
-                                        <div class="text-muted small">{{ item.product.category }} &bull; Catalogue Price: ${{ "%.2f"|format(item.product.price) }}</div>
+                                        <div class="text-muted small">{{ item.product.category }} &bull; Stock: {{ item.product.stock_quantity }}</div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="fw-semibold">${{ "%.2f"|format(item.effective_unit_price) }}</td>
+                            <td class="fw-semibold">${{ "%.2f"|format(item.product.price) }}</td>
                             <td>
                                 <form method="POST" action="{{ url_for('cart.update_cart_item', item_id=item.id) }}" class="d-flex gap-1">
-                                    <input type="hidden" name="price" value="{{ '%.2f'|format(item.effective_unit_price) }}">
                                     <input type="number" name="quantity" class="form-control form-control-sm"
                                            value="{{ item.quantity }}" min="1" max="{{ item.product.stock_quantity }}" required>
                                     <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
@@ -79,7 +78,7 @@
             </div>
             <div class="card-body">
                 <div class="d-flex justify-content-between mb-2">
-                    <span class="text-muted">Cart Subtotal:</span>
+                    <span class="text-muted">Authoritative Subtotal:</span>
                     <span class="fw-bold fs-5">${{ "%.2f"|format(summary['subtotal']) }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-3 small">
