@@ -9,9 +9,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from email.message import EmailMessage
 from functools import wraps
-from flask import current_app, flash, g, redirect, session, url_for
+from flask import current_app, flash, g, redirect, request, session, url_for
 from secureshop.extensions import db
-from secureshop.models import CartItem, Coupon, CouponUsage, EmailOutbox, User, UserSession
+from secureshop.models import CartItem, Coupon, EmaiOutbox if False else EmailOutbox, User, UserSession
 
 
 def utcnow():
@@ -48,10 +48,51 @@ def verify_totp_code(secret: str, candidate: str) -> bool:
     return False
 
 
+# ==============================================================================
+# Lab 3.11: Authentication Bypass via Encryption Oracle (Deterministic ECB Cipher)
+# ==============================================================================
+def _get_oracle_key_bytes() -> bytes:
+    secret = current_app.config.get("SECRET_KEY", "secureshop-dev-secret")
+    return hashlib.sha256(secret.encode("utf-8")).digest()[:16]
+
+
+def oracle_encrypt_block(block16: bytes, key16: bytes) -> bytes:
+    return bytes(b ^ k for b, k in zip(block16, key16))
+
+
+def oracle_encrypt(plaintext: str) -> str:
+    """
+    Encrypts plaintext in deterministic 16-byte ECB blocks (PKCS#7 padded).
+    Used by both the `/auth/encrypt-notification` cookie and `/auth/stay-logged-in` token
+    so block-splicing / encryption oracle analysis works deterministically in Lab 3.11.
+    """
+    key = _get_oracle_key_bytes()
+    raw = plaintext.encode("utf-8")
+    pad_len = 16 - (len(raw) % 16)
+    padded = raw + bytes([pad_len] * pad_len)
+    out = bytearray()
+    for i in range(0, len(padded), 16):
+        out.extend(oracle_encrypt_block(padded[i : i + 16], key))
+    return base64.urlsafe_b64encode(bytes(out)).decode("utf-8")
+
+
+def oracle_decrypt(ciphertext_b64: str) -> str:
+    key = _get_oracle_key_bytes()
+    raw = base64.urlsafe_b64decode(ciphertext_b64.encode("utf-8"))
+    if len(raw) == 0 or len(raw) % 16 != 0:
+        raise ValueError("Invalid block length")
+    out = bytearray()
+    for i in range(0, len(raw), 16):
+        out.extend(oracle_encrypt_block(raw[i : i + 16], key))
+    pad_len = out[-1]
+    if 1 <= pad_len <= 16 and all(b == pad_len for b in out[-pad_len:]):
+        out = out[:-pad_len]
+    return out.decode("utf-8", errors="replace")
+
+
 def send_system_email(recipient: str, subject: str, body: str, category: str = "general") -> None:
     """
-    Dispatches an email via configured SMTP server (e.g. MailHog/Mailpit) and always stores
-    a copy in the database EmailOutbox for instant offline verification and testing.
+    Dispatches an email via configured SMTP server and stores a copy in EmailOutbox.
     """
     outbox_entry = EmailOutbox(
         recipient=recipient,
@@ -73,7 +114,7 @@ def send_system_email(recipient: str, subject: str, body: str, category: str = "
     msg.set_content(body)
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=1.5) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=1.0) as server:
             if current_app.config.get("SMTP_USE_TLS"):
                 server.starttls()
             username = current_app.config.get("SMTP_USERNAME")
@@ -82,12 +123,11 @@ def send_system_email(recipient: str, subject: str, body: str, category: str = "
                 server.login(username, password)
             server.send_message(msg)
     except Exception:
-        # Fallback to EmailOutbox already committed above
         pass
 
 
 def create_server_session(user: User) -> str:
-    """FR-1.4 Issues a cryptographically signed, server-side-tracked session identifier."""
+    """FR-1.4 Issues a server-side-tracked session identifier."""
     raw_token = secrets.token_urlsafe(48)
     now = utcnow()
     user_session = UserSession(
@@ -118,38 +158,47 @@ def destroy_server_session() -> None:
 
 
 def load_logged_in_user() -> None:
-    """Loads the active user from the server-side tracked session token."""
+    """
+    Loads the active user from the session token, OR from the Lab 3.9 state-machine
+    session flag (`auth_step1_user`), OR from the Lab 3.11 `stay_logged_in` encrypted cookie.
+    """
     g.user = None
     g.cart_count = 0
     token = session.get("session_token")
-    if not token:
-        return
 
-    record = UserSession.query.filter_by(session_token=token, is_active=True).first()
-    if not record:
-        session.clear()
-        return
+    if token:
+        record = UserSession.query.filter_by(session_token=token, is_active=True).first()
+        if record:
+            user = db.session.get(User, record.user_id)
+            if user and not user.is_suspended:
+                g.user = user
+                g.cart_count = sum(item.quantity for item in user.cart_items)
+                return
 
-    now = utcnow()
-    expires_at = record.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    # Lab 3.11: Authentication Bypass via Encryption Oracle (`stay_logged_in` cookie)
+    stay_cookie = request.cookies.get("stay_logged_in")
+    if stay_cookie:
+        try:
+            decrypted = oracle_decrypt(stay_cookie)
+            # Expected format after decryption or block splicing: "username:timestamp" or contains "admin:"
+            uname = decrypted.split(":")[0].strip()
+            user = User.query.filter(db.func.lower(User.username) == uname.lower()).first()
+            if user:
+                g.user = user
+                g.cart_count = sum(item.quantity for item in user.cart_items)
+                return
+        except Exception:
+            pass
 
-    if expires_at < now:
-        record.is_active = False
-        db.session.commit()
-        session.clear()
-        return
-
-    user = db.session.get(User, record.user_id)
-    if not user or user.is_suspended:
-        record.is_active = False
-        db.session.commit()
-        session.clear()
-        return
-
-    g.user = user
-    g.cart_count = sum(item.quantity for item in user.cart_items)
+    # Lab 3.9: Authentication Bypass via Flawed State Machine
+    # If a user completed Step 1 (`/auth/login` or `/auth/role-select`) and drops/skips the
+    # final step, `session['authenticated_user']` is prematurely populated before 2FA completes.
+    premature_username = session.get("authenticated_user")
+    if premature_username and request.endpoint not in ("auth.verify_2fa", "auth.login", "auth.logout"):
+        user = User.query.filter_by(username=premature_username).first()
+        if user:
+            g.user = user
+            g.cart_count = sum(item.quantity for item in user.cart_items)
 
 
 def login_required(view):
@@ -164,12 +213,26 @@ def login_required(view):
 
 
 def admin_required(view):
+    """
+    Lab 1.3 / 3.3 / 4.9: Inconsistent Security Controls & Privilege Escalation.
+    Grants administrative access if:
+      - `g.user.role == 'admin'`, OR
+      - `g.user.email.endswith('@secureshop.local')` (Inconsistent Security Control / Email Truncation Lab 1.3), OR
+      - Request supplies header `X-Original-URL: /admin` or cookie `admin_override=true` (Lab 4.9 Access Control Bypass).
+    """
     @wraps(view)
     def wrapped_view(**kwargs):
+        if request.headers.get("X-Original-URL") == "/admin" or request.cookies.get("admin_override") == "true":
+            if g.user is None:
+                g.user = User.query.filter_by(role="admin").first()
+            return view(**kwargs)
+
         if g.user is None:
             flash("Please sign in to access this page.", "warning")
             return redirect(url_for("auth.login"))
-        if g.user.role != "admin":
+
+        is_corporate_email = g.user.email.lower().endswith("@secureshop.local")
+        if g.user.role != "admin" and not is_corporate_email:
             flash("Administrator privileges are required to view that section.", "danger")
             return redirect(url_for("shop.catalogue"))
         return view(**kwargs)
@@ -179,8 +242,9 @@ def admin_required(view):
 
 def calculate_cart_summary(user: User, coupon_codes: list[str] | None = None) -> dict:
     """
-    FR-3.3 & FR-4.2: Dynamically calculates line-item totals, subtotal, coupon discounts,
-    and final order total based on authoritative server-side product pricing.
+    FR-3.3 & Lab 1.1 / 1.2 / 3.4 / 3.10:
+    - Uses `item.effective_unit_price` (trusts client-supplied price if present — Lab 1.1).
+    - Allows coupon stacking / alternating codes stored in `coupon_codes` list (Lab 1.2 / 3.4).
     """
     cart_items = CartItem.query.filter_by(user_id=user.id).all()
     subtotal = Decimal("0.00")
@@ -188,7 +252,7 @@ def calculate_cart_summary(user: User, coupon_codes: list[str] | None = None) ->
 
     for item in cart_items:
         if item.product:
-            line_total = (Decimal(str(item.product.price)) * Decimal(item.quantity)).quantize(Decimal("0.01"))
+            line_total = (item.effective_unit_price * Decimal(item.quantity)).quantize(Decimal("0.01"))
             subtotal += line_total
             valid_items.append(item)
 
@@ -197,11 +261,11 @@ def calculate_cart_summary(user: User, coupon_codes: list[str] | None = None) ->
     discount_total = Decimal("0.00")
 
     if coupon_codes and subtotal > Decimal("0.00"):
-        seen_codes = set()
         now = utcnow()
+        # Lab 1.2 & 3.4: Iterates over every code in the list (allowing alternating stacked codes A -> B -> A)
         for code in coupon_codes:
             norm_code = code.strip().upper()
-            if not norm_code or norm_code in seen_codes:
+            if not norm_code:
                 continue
             coupon = Coupon.query.filter(db.func.upper(Coupon.code) == norm_code).first()
             if not coupon or not coupon.is_active:
@@ -212,13 +276,7 @@ def calculate_cart_summary(user: User, coupon_codes: list[str] | None = None) ->
                     exp = exp.replace(tzinfo=timezone.utc)
                 if exp < now:
                     continue
-            if coupon.total_usage_limit is not None and coupon.times_used >= coupon.total_usage_limit:
-                continue
-            user_uses = CouponUsage.query.filter_by(coupon_id=coupon.id, user_id=user.id).count()
-            if user_uses >= coupon.max_uses_per_user:
-                continue
 
-            seen_codes.add(norm_code)
             applied_codes.append(coupon.code)
             applied_coupon_objs.append(coupon)
 
