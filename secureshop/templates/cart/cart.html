@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Shopping Cart — SecureShop{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0"><i class="bi bi-cart3 text-primary me-2"></i>Your Shopping Cart</h3>
+    <a href="{{ url_for('shop.catalogue') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Continue Shopping
+    </a>
+</div>
+
+{% if not summary['items'] %}
+<div class="card border-0 shadow-sm p-5 text-center">
+    <i class="bi bi-cart-x display-4 text-muted mb-3"></i>
+    <h5>Your shopping cart is currently empty.</h5>
+    <p class="text-muted small">Explore the catalogue and add items to your cart.</p>
+    <div class="mt-2">
+        <a href="{{ url_for('shop.catalogue') }}" class="btn btn-primary">Browse Catalogue</a>
+    </div>
+</div>
+{% else %}
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Product</th>
+                            <th>Unit Price (Authoritative)</th>
+                            <th style="width: 170px;">Quantity</th>
+                            <th>Line Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in summary['items'] %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="{{ item.product.image_url }}" class="rounded" style="width: 56px; height: 56px; object-fit: cover;" alt="{{ item.product.name }}">
+                                    <div>
+                                        <a href="{{ url_for('shop.product_detail', product_id=item.product.id) }}" class="fw-semibold text-decoration-none text-dark">
+                                            {{ item.product.name }}
+                                        </a>
+                                        <div class="text-muted small">{{ item.product.category }} &bull; Stock: {{ item.product.stock_quantity }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="fw-semibold">${{ "%.2f"|format(item.product.price) }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('cart.update_cart_item', item_id=item.id) }}" class="d-flex gap-1">
+                                    <input type="number" name="quantity" class="form-control form-control-sm"
+                                           value="{{ item.quantity }}" min="1" max="{{ item.product.stock_quantity }}" required>
+                                    <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
+                                </form>
+                            </td>
+                            <td class="fw-bold text-primary">${{ "%.2f"|format(item.line_total) }}</td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('cart.remove_cart_item', item_id=item.id) }}">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Remove Item">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">Cart Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Authoritative Subtotal:</span>
+                    <span class="fw-bold fs-5">${{ "%.2f"|format(summary['subtotal']) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3 small">
+                    <span class="text-muted">Your Store Credit Balance:</span>
+                    <span class="fw-semibold text-success">${{ "%.2f"|format(current_user.store_credit) }}</span>
+                </div>
+                <hr>
+                <a href="{{ url_for('checkout.checkout_view') }}" class="btn btn-primary w-100 py-2">
+                    <i class="bi bi-shield-check me-1"></i>Proceed to Checkout & Coupons
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

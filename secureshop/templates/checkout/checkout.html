@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Checkout — SecureShop{% endblock %}
+
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-credit-card-2-front text-primary me-2"></i>Checkout & Store-Credit Payment</h3>
+
+<div class="row g-4">
+    <!-- Order Line Items Review -->
+    <div class="col-lg-7">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">1. Review Cart Items</h5>
+                <a href="{{ url_for('cart.view_cart') }}" class="btn btn-outline-secondary btn-sm">Edit Cart</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Item</th>
+                            <th>Unit Price</th>
+                            <th>Qty</th>
+                            <th class="text-end">Line Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in summary['items'] %}
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">{{ item.product.name }}</div>
+                                <div class="text-muted small">{{ item.product.category }}</div>
+                            </td>
+                            <td>${{ "%.2f"|format(item.product.price) }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td class="text-end fw-semibold">${{ "%.2f"|format(item.line_total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- FR-4.2 Coupon Validation & Application -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0">2. Promotional Coupons (FR-4.2)</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('checkout.apply_coupon') }}" class="d-flex gap-2 mb-3">
+                    <input type="text" name="coupon_code" class="form-control"
+                           placeholder="Enter coupon code (e.g. WELCOME10, SAVE25, VIP15)" required>
+                    <button type="submit" class="btn btn-outline-primary text-nowrap px-4">
+                        <i class="bi bi-tag-fill me-1"></i>Apply Coupon
+                    </button>
+                </form>
+
+                {% if summary['applied_coupons'] %}
+                <div class="mt-2">
+                    <div class="small fw-semibold text-muted mb-2">Applied Coupons:</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for c in summary['applied_coupons'] %}
+                        <div class="badge bg-success-subtle text-success-emphasis border border-success-subtle d-flex align-items-center gap-2 p-2">
+                            <span>
+                                <i class="bi bi-ticket-perforated me-1"></i><strong>{{ c.code }}</strong>
+                                ({% if c.discount_type == 'percent' %}{{ c.discount_value }}% off{% else %}${{ "%.2f"|format(c.discount_value) }} off{% endif %})
+                            </span>
+                            <form method="POST" action="{{ url_for('checkout.remove_coupon') }}" class="m-0">
+                                <input type="hidden" name="coupon_code" value="{{ c.code }}">
+                                <button type="submit" class="btn-close" style="font-size: 0.65rem;" title="Remove Coupon"></button>
+                            </form>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-muted small">
+                    Tip: Subscribe to our newsletter in the footer for <code>WELCOME10</code> (10% off) or try <code>SAVE25</code> ($25 off).
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- FR-5.1 & FR-5.2 Store-Credit Payment Box -->
+    <div class="col-lg-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">3. Payment & Order Summary</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Cart Subtotal:</span>
+                    <span class="fw-semibold">${{ "%.2f"|format(summary['subtotal']) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 text-success">
+                    <span>Coupon Discounts:</span>
+                    <span class="fw-semibold">-${{ "%.2f"|format(summary['discount']) }}</span>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fs-5 fw-bold">Final Order Total:</span>
+                    <span class="fs-4 fw-bold text-primary">${{ "%.2f"|format(summary['final_total']) }}</span>
+                </div>
+
+                <div class="p-3 rounded bg-light border mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="small text-muted">Available Store Credit:</span>
+                        <span class="fw-bold text-success">${{ "%.2f"|format(current_user.store_credit) }}</span>
+                    </div>
+                    {% set remaining = current_user.store_credit - summary['final_total'] %}
+                    <div class="d-flex justify-content-between">
+                        <span class="small text-muted">Balance After Purchase:</span>
+                        <span class="fw-semibold {% if remaining < 0 %}text-danger{% else %}text-dark{% endif %}">
+                            ${{ "%.2f"|format(remaining) }}
+                        </span>
+                    </div>
+                </div>
+
+                {% if current_user.store_credit >= summary['final_total'] %}
+                <form method="POST" action="{{ url_for('checkout.process_checkout') }}">
+                    <button type="submit" class="btn btn-success btn-lg w-100">
+                        <i class="bi bi-lock-fill me-2"></i>Pay with Store Credit (${{ "%.2f"|format(summary['final_total']) }})
+                    </button>
+                </form>
+                {% else %}
+                <div class="alert alert-danger small mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Insufficient store credit to complete this purchase. Remove items, apply a coupon, or ask an administrator to top up your store credit.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

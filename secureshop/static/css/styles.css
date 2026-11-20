@@ -1,0 +1,48 @@
+:root {
+    --ss-primary: #0f172a;
+    --ss-accent: #2563eb;
+    --ss-surface: #f8fafc;
+}
+
+body {
+    background-color: var(--ss-surface);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.product-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.product-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.product-thumb {
+    height: 200px;
+    object-fit: cover;
+    background-color: #e2e8f0;
+}
+
+.credit-badge {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    font-weight: 600;
+}
+
+.footer-newsletter {
+    background-color: #0f172a;
+    color: #f8fafc;
+}

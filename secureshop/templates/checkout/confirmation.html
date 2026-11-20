@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Order Confirmed — SecureShop{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-success text-white py-4 text-center">
+                <i class="bi bi-patch-check-fill display-4 mb-2 d-block"></i>
+                <h3 class="mb-1">Order Confirmed & Paid!</h3>
+                <p class="mb-0 small">Order Reference ID: <code class="text-white fw-bold">{{ order.id }}</code></p>
+            </div>
+            <div class="card-body p-4">
+                <div class="row mb-4">
+                    <div class="col-sm-6">
+                        <div class="text-muted small">Customer</div>
+                        <div class="fw-semibold">{{ current_user.display_name or current_user.username }} ({{ current_user.email }})</div>
+                    </div>
+                    <div class="col-sm-6 text-sm-end mt-2 mt-sm-0">
+                        <div class="text-muted small">Timestamp</div>
+                        <div class="fw-semibold">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</div>
+                        <span class="badge bg-success">{{ order.status }}</span>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold border-bottom pb-2">Purchased Items (Immutable Line-Item Snapshot)</h6>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Product</th>
+                                <th>Unit Price at Purchase</th>
+                                <th>Quantity</th>
+                                <th class="text-end">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order.items %}
+                            <tr>
+                                <td>{{ item.product_name }}</td>
+                                <td>${{ "%.2f"|format(item.unit_price_at_purchase) }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td class="text-end fw-semibold">${{ "%.2f"|format(item.line_total) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-light p-3 rounded border mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Subtotal:</span>
+                        <span>${{ "%.2f"|format(order.subtotal_amount) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 text-success">
+                        <span>
+                            Applied Discounts
+                            {% if applied_coupons %}
+                                ({{ applied_coupons|join(', ') }})
+                            {% endif %}:
+                        </span>
+                        <span>-${{ "%.2f"|format(order.discount_amount) }}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between fw-bold fs-5">
+                        <span>Total Paid via Store Credit:</span>
+                        <span class="text-primary">${{ "%.2f"|format(order.total_paid) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted mt-1">
+                        <span>Remaining Account Store Credit:</span>
+                        <span class="fw-semibold text-success">${{ "%.2f"|format(current_user.store_credit) }}</span>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('shop.catalogue') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-shop me-1"></i>Continue Shopping
+                    </a>
+                    <a href="{{ url_for('account.profile') }}" class="btn btn-primary">
+                        <i class="bi bi-clock-history me-1"></i>View Full Order History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SecureShop — Enterprise Security Hardware & Gear{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation Bar (NFR-1: All Traditional Tabs) -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="{{ url_for('shop.catalogue') }}">
+                <i class="bi bi-shield-lock-fill text-primary"></i>
+                <span>SecureShop</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('shop.') %}active{% endif %}"
+                           href="{{ url_for('shop.catalogue') }}">
+                            <i class="bi bi-grid-fill me-1"></i>Home / Catalogue
+                        </a>
+                    </li>
+
+                    {% if current_user %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('cart.') %}active{% endif %}"
+                           href="{{ url_for('cart.view_cart') }}">
+                            <i class="bi bi-cart3 me-1"></i>Cart
+                            <span class="badge rounded-pill bg-primary ms-1">{{ cart_count }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('checkout.') %}active{% endif %}"
+                           href="{{ url_for('checkout.checkout_view') }}">
+                            <i class="bi bi-credit-card-2-front me-1"></i>Checkout
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and request.endpoint.startswith('account.') %}active{% endif %}"
+                           href="{{ url_for('account.profile') }}">
+                            <i class="bi bi-person-badge me-1"></i>Account
+                        </a>
+                    </li>
+                    {% if current_user.role == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link text-warning fw-semibold {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}"
+                           href="{{ url_for('admin.dashboard') }}">
+                            <i class="bi bi-sliders me-1"></i>Admin Panel
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endif %}
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'auth.mail_outbox' %}active{% endif %}"
+                           href="{{ url_for('auth.mail_outbox') }}"
+                           title="Inspect local verification links, 2FA OTP codes, and newsletter coupons">
+                            <i class="bi bi-envelope-paper me-1"></i>Mail Outbox
+                        </a>
+                    </li>
+                </ul>
+
+                <div class="d-flex align-items-center gap-2">
+                    {% if current_user %}
+                        <span class="badge credit-badge px-3 py-2 rounded-pill">
+                            <i class="bi bi-wallet2 me-1"></i>Credit: ${{ "%.2f"|format(current_user.store_credit) }}
+                        </span>
+                        <span class="text-light small d-none d-md-inline ms-1">
+                            {{ current_user.display_name or current_user.username }}
+                            {% if current_user.role == 'admin' %}
+                                <span class="badge bg-warning text-dark ms-1">ADMIN</span>
+                            {% endif %}
+                        </span>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-light btn-sm ms-2">
+                            <i class="bi bi-box-arrow-right me-1"></i>Logout
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('auth.login') }}"
+                           class="btn btn-outline-light btn-sm {% if request.endpoint == 'auth.login' %}active{% endif %}">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                        </a>
+                        <a href="{{ url_for('auth.register') }}"
+                           class="btn btn-primary btn-sm {% if request.endpoint == 'auth.register' %}active{% endif %}">
+                            <i class="bi bi-person-plus me-1"></i>Register
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Alerts -->
+    <div class="container mt-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Main Content -->
+    <main class="container my-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer with FR-4.1 Newsletter Subscription -->
+    <footer class="footer-newsletter py-4 mt-auto">
+        <div class="container">
+            <div class="row align-items-center gy-3">
+                <div class="col-md-6">
+                    <h5 class="mb-1"><i class="bi bi-shield-check text-primary me-2"></i>SecureShop Newsletter</h5>
+                    <p class="text-secondary small mb-0">
+                        Subscribe with your email address to receive an instant promotional coupon code (<strong>WELCOME10</strong> for 10% off).
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <form action="{{ url_for('shop.newsletter_subscribe') }}" method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                        <input type="email" name="email" class="form-control form-control-sm"
+                               placeholder="Enter your email address (max 254 chars)" maxlength="254" required>
+                        <button type="submit" class="btn btn-primary btn-sm text-nowrap px-3">
+                            <i class="bi bi-send me-1"></i>Subscribe & Get Coupon
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <hr class="border-secondary my-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center small text-secondary">
+                <span>&copy; 2026 SecureShop E-Commerce Platform — Task 1 Functional Requirements Build</span>
+                <span>Demo Accounts: <code>admin / AdminPass123!</code> &bull; <code>alice / CustomerPass123!</code></span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

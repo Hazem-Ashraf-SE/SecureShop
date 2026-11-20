@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Administrative Panel — SecureShop{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="mb-0"><i class="bi bi-sliders text-primary me-2"></i>Administrative Panel (FR-7)</h3>
+        <p class="text-muted small mb-0">Manage registered users, store credit balances, product inventory, and promotional coupons.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-dark px-3 py-2">Users: {{ users|length }}</span>
+        <span class="badge bg-primary px-3 py-2">Products: {{ products|length }}</span>
+        <span class="badge bg-success px-3 py-2">Coupons: {{ coupons|length }}</span>
+    </div>
+</div>
+
+<!-- Admin Section Tabs -->
+<ul class="nav nav-tabs mb-4">
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'users' %}active fw-bold{% endif %}"
+           href="{{ url_for('admin.dashboard', tab='users') }}">
+            <i class="bi bi-people-fill me-1"></i>1. User Management (FR-7.1)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'products' %}active fw-bold{% endif %}"
+           href="{{ url_for('admin.dashboard', tab='products') }}">
+            <i class="bi bi-box-seam-fill me-1"></i>2. Product Management (FR-7.2)
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if active_tab == 'coupons' %}active fw-bold{% endif %}"
+           href="{{ url_for('admin.dashboard', tab='coupons') }}">
+            <i class="bi bi-ticket-perforated-fill me-1"></i>3. Coupon Management (FR-7.3)
+        </a>
+    </li>
+</ul>
+
+<!-- ======================================================================= -->
+<!-- TAB 1: FR-7.1 USER MANAGEMENT                                           -->
+<!-- ======================================================================= -->
+{% if active_tab == 'users' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-dark text-white py-3">
+        <h5 class="mb-0">Registered Users — Assign Roles, Adjust Store Credit, Suspend or Delete</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>User / Email</th>
+                    <th>Role</th>
+                    <th>Store Credit ($)</th>
+                    <th>Verified</th>
+                    <th>Suspended</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <form method="POST" action="{{ url_for('admin.update_user', user_id=u.id) }}">
+                        <td>#{{ u.id }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ u.username }}</div>
+                            <div class="text-muted small">{{ u.email }}</div>
+                        </td>
+                        <td style="width: 140px;">
+                            <select name="role" class="form-select form-select-sm">
+                                <option value="customer" {% if u.role == 'customer' %}selected{% endif %}>customer</option>
+                                <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>admin</option>
+                            </select>
+                        </td>
+                        <td style="width: 150px;">
+                            <input type="number" step="0.01" min="0" name="store_credit" class="form-control form-control-sm"
+                                   value="{{ '%.2f'|format(u.store_credit) }}" required>
+                        </td>
+                        <td>
+                            <input class="form-check-input" type="checkbox" name="is_verified" value="1"
+                                   {% if u.is_verified %}checked{% endif %}>
+                        </td>
+                        <td>
+                            <input class="form-check-input" type="checkbox" name="is_suspended" value="1"
+                                   {% if u.is_suspended %}checked{% endif %}>
+                        </td>
+                        <td class="text-end">
+                            <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                    </form>
+                    {% if u.id != current_user.id %}
+                    <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" class="d-inline ms-1">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('Delete user {{ u.username }}?');">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                        </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ======================================================================= -->
+<!-- TAB 2: FR-7.2 PRODUCT MANAGEMENT (CRUD)                                 -->
+<!-- ======================================================================= -->
+{% if active_tab == 'products' %}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0"><i class="bi bi-plus-circle me-1"></i>Create New Product</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.create_product') }}">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Product Title</label>
+                        <input type="text" name="name" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Category</label>
+                        <input type="text" name="category" class="form-control form-control-sm" placeholder="Hardware Security" required>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Price ($)</label>
+                            <input type="number" step="0.01" min="0" name="price" class="form-control form-control-sm" value="49.99" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Stock Qty</label>
+                            <input type="number" min="0" name="stock_quantity" class="form-control form-control-sm" value="25" required>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Thumbnail Image URL</label>
+                        <input type="url" name="image_url" class="form-control form-control-sm"
+                               placeholder="https://images.unsplash.com/...">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Description</label>
+                        <textarea name="description" rows="2" class="form-control form-control-sm" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Technical Specifications</label>
+                        <textarea name="specifications" rows="2" class="form-control form-control-sm"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-plus-lg me-1"></i>Add Product to Catalogue
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">Existing Catalogue Products (Edit or Delete)</h5>
+            </div>
+            <div class="card-body p-3">
+                {% for p in products %}
+                <div class="border rounded p-3 mb-3 bg-white">
+                    <form method="POST" action="{{ url_for('admin.update_product', product_id=p.id) }}">
+                        <div class="row g-2 align-items-center mb-2">
+                            <div class="col-md-5">
+                                <label class="form-label small text-muted mb-0">Title</label>
+                                <input type="text" name="name" class="form-control form-control-sm fw-semibold" value="{{ p.name }}" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small text-muted mb-0">Category</label>
+                                <input type="text" name="category" class="form-control form-control-sm" value="{{ p.category }}" required>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small text-muted mb-0">Price ($)</label>
+                                <input type="number" step="0.01" min="0" name="price" class="form-control form-control-sm" value="{{ '%.2f'|format(p.price) }}" required>
+                            </div>
+                            <div class="col-6 col-md-2">
+                                <label class="form-label small text-muted mb-0">Stock</label>
+                                <input type="number" min="0" name="stock_quantity" class="form-control form-control-sm" value="{{ p.stock_quantity }}" required>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted mb-0">Description</label>
+                                <input type="text" name="description" class="form-control form-control-sm" value="{{ p.description }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted mb-0">Specifications</label>
+                                <input type="text" name="specifications" class="form-control form-control-sm" value="{{ p.specifications or '' }}">
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <input type="url" name="image_url" class="form-control form-control-sm w-50" value="{{ p.image_url }}" placeholder="Image URL">
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary btn-sm">Update Product</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.delete_product', product_id=p.id) }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                onclick="return confirm('Delete product {{ p.name }}?');">
+                            Delete
+                        </button>
+                    </form>
+                            </div>
+                        </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- ======================================================================= -->
+<!-- TAB 3: FR-7.3 COUPON MANAGEMENT                                         -->
+<!-- ======================================================================= -->
+{% if active_tab == 'coupons' %}
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-success text-white py-3">
+                <h5 class="mb-0"><i class="bi bi-plus-circle me-1"></i>Create Promotional Coupon</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.create_coupon') }}">
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Coupon Code</label>
+                        <input type="text" name="code" class="form-control form-control-sm text-uppercase" placeholder="CYBER50" required>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Discount Type</label>
+                            <select name="discount_type" class="form-select form-select-sm">
+                                <option value="percent">Percentage (%)</option>
+                                <option value="fixed">Fixed Amount ($)</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Discount Value</label>
+                            <input type="number" step="0.01" min="0.01" name="discount_value" class="form-control form-control-sm" value="15.00" required>
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Max Uses / User</label>
+                            <input type="number" min="1" name="max_uses_per_user" class="form-control form-control-sm" value="1" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Total Limit (Optional)</label>
+                            <input type="number" min="1" name="total_usage_limit" class="form-control form-control-sm" placeholder="100">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small fw-semibold">Expiration Date (Optional)</label>
+                        <input type="date" name="expires_at" class="form-control form-control-sm">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Description</label>
+                        <input type="text" name="description" class="form-control form-control-sm" placeholder="Holiday promotional discount">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-check2-circle me-1"></i>Create Coupon
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0">Configured Promotional Coupons</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Code</th>
+                            <th>Type & Value</th>
+                            <th>Usage / Limits</th>
+                            <th>Expires</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in coupons %}
+                        <tr>
+                            <td>
+                                <code class="fw-bold fs-6">{{ c.code }}</code>
+                                {% if c.description %}
+                                    <div class="text-muted small">{{ c.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if c.discount_type == 'percent' %}
+                                    <span class="badge bg-info-subtle text-info-emphasis">{{ c.discount_value }}% OFF</span>
+                                {% else %}
+                                    <span class="badge bg-primary-subtle text-primary-emphasis">${{ "%.2f"|format(c.discount_value) }} OFF</span>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                <div>Per-user limit: <strong>{{ c.max_uses_per_user }}</strong></div>
+                                <div>Redemptions: <strong>{{ c.times_used }}</strong> / {{ c.total_usage_limit or '∞' }}</div>
+                            </td>
+                            <td class="small">
+                                {{ c.expires_at.strftime('%Y-%m-%d') if c.expires_at else 'No expiry' }}
+                            </td>
+                            <td>
+                                {% if c.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('admin.toggle_coupon', coupon_id=c.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm {% if c.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                                        {% if c.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('admin.delete_coupon', coupon_id=c.id) }}" class="d-inline ms-1">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

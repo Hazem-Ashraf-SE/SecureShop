@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Demo Mail Outbox — SecureShop{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="mb-1"><i class="bi bi-envelope-paper-fill text-primary me-2"></i>Local Mail Outbox (SMTP Trap Viewer)</h3>
+        <p class="text-muted small mb-0">
+            Displays registration verification links (FR-1.2), 2FA login OTP codes (FR-1.3), email change confirmations (FR-6.1), and newsletter coupons (FR-4.1).
+        </p>
+    </div>
+</div>
+
+{% if not emails %}
+<div class="card border-0 shadow-sm p-5 text-center text-muted">
+    <i class="bi bi-inbox display-4 mb-2"></i>
+    <p class="mb-0">No emails have been dispatched yet. Register an account, sign in, or subscribe to the newsletter to see messages here.</p>
+</div>
+{% else %}
+<div class="list-group shadow-sm">
+    {% for mail in emails %}
+    <div class="list-group-item p-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <span class="badge bg-primary me-2">{{ mail.category|upper }}</span>
+                <strong>{{ mail.subject }}</strong>
+                <span class="text-muted small ms-2">To: <code>{{ mail.recipient }}</code></span>
+            </div>
+            <span class="text-muted small">{{ mail.created_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</span>
+        </div>
+        <pre class="bg-light p-3 rounded border small mb-0" style="white-space: pre-wrap;">{{ mail.body }}</pre>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

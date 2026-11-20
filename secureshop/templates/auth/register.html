@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Register Account — SecureShop{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="mb-0"><i class="bi bi-person-plus-fill me-2 text-primary"></i>Create a SecureShop Account</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('auth.register') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username</label>
+                        <input type="text" name="username" class="form-control" placeholder="e.g. jdoe" maxlength="64" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Display Name</label>
+                        <input type="text" name="display_name" class="form-control" placeholder="e.g. Jane Doe" maxlength="100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email Address</label>
+                        <input type="email" name="email" class="form-control" placeholder="you@example.com" maxlength="254" required>
+                        <div class="form-text">A single-use activation link will be sent to this email (and viewable in the Mail Outbox tab).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password</label>
+                        <input type="password" name="password" class="form-control" minlength="8" placeholder="At least 8 characters" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Confirm Password</label>
+                        <input type="password" name="confirm_password" class="form-control" minlength="8" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="bi bi-check2-circle me-1"></i>Register & Send Confirmation Link
+                    </button>
+                </form>
+            </div>
+            <div class="card-footer bg-light text-center py-3 small">
+                Already have an account? <a href="{{ url_for('auth.login') }}" class="fw-semibold">Sign in here</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
