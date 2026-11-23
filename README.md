@@ -188,4 +188,4 @@ SoftwareSecurity/
 - [SystemComponents.md](SystemComponents.md) — Approved technology stack and security libraries.
 - [Vulnerabilities.md](Vulnerabilities.md) — Master checklist of all 39 course threats & attacks verified against SecureShop.
 
-> **Academic Ethics Notice:** Per CET431 course policy, all Red Team / Blue Team security testing must be conducted strictly against this local team-owned SecureShop instance within the authorized course environment. Never test external websites or unauthorized systems..
+> **Academic Ethics Notice:** Per CET431 course policy, all Red Team / Blue Team security testing must be conducted strictly against this local team-owned SecureShop instance within the authorized course environment. Never test external websites or unauthorized systems.
