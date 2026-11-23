@@ -3,7 +3,16 @@ import secrets
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 from secureshop.extensions import db
 from secureshop.models import Order, User
-from secureshop.utils import get_totp_token, login_required, send_system_email, utcnow
+from secureshop.utils import (
+    get_totp_token,
+    log_security_event,
+    login_required,
+    revoke_all_user_sessions,
+    create_server_session,
+    send_system_email,
+    utcnow,
+    validate_email_strict,
+)
 
 account_bp = Blueprint("account", __name__, url_prefix="/account")
 
@@ -13,7 +22,7 @@ account_bp = Blueprint("account", __name__, url_prefix="/account")
 def profile():
     """
     FR-6.1 Profile Viewing & Editing
-    FR-6.2 Personal Order History (order IDs, timestamps, purchased items, applied discounts, total paid)
+    FR-6.2 Personal Order History
     """
     orders = Order.query.filter_by(user_id=g.user.id).order_by(Order.created_at.desc()).all()
     order_list = []
@@ -32,29 +41,38 @@ def profile():
 @login_required
 def update_profile():
     """
-    FR-6.1 Allows authenticated users to update permitted profile attributes
-    (display_name, email with re-verification) while preventing modification of restricted
-    fields (role, store_credit).
+    FR-6.1, SR-3, SR-4 & Lab 4.7 / 4.9:
+    - Strictly validates email length (<= 254 chars) and format (returns 400 on violation).
+    - Explicit allow-list of editable fields (`display_name`, `email`); logs & ignores any mass-assignment
+      attempts on `role`, `store_credit`, `is_verified`, or `is_suspended`.
     """
+    if any(k in request.form for k in ("role", "store_credit", "is_verified", "is_suspended")):
+        log_security_event(
+            "MASS_ASSIGNMENT_BLOCKED",
+            "Blocked attempt to modify restricted account fields via /account/update-profile",
+            severity="HIGH",
+            username=g.user.username,
+        )
+
     display_name = (request.form.get("display_name") or "").strip()
     new_email = (request.form.get("email") or "").strip().lower()
 
-    if not display_name:
-        flash("Display name cannot be empty.", "danger")
-        return redirect(url_for("account.profile"))
+    if not display_name or len(display_name) > 100:
+        flash("Display name must be between 1 and 100 characters.", "danger")
+        return redirect(url_for("account.profile")), 400
 
-    if not new_email or "@" not in new_email or len(new_email) > 254:
-        flash("Please provide a valid email address (max 254 characters).", "danger")
-        return redirect(url_for("account.profile"))
+    valid_e, err_e = validate_email_strict(new_email)
+    if not valid_e:
+        flash(err_e, "danger")
+        return redirect(url_for("account.profile")), 400
 
-    # Note: Restricted fields like 'role' or 'store_credit' are never read or bound from request.form
     g.user.display_name = display_name
 
     if new_email != g.user.email.lower():
         existing = User.query.filter(db.func.lower(User.email) == new_email, User.id != g.user.id).first()
         if existing:
             flash("That email address is already associated with another account.", "danger")
-            return redirect(url_for("account.profile"))
+            return redirect(url_for("account.profile")), 400
 
         token = secrets.token_urlsafe(32)
         g.user.pending_email = new_email
@@ -75,7 +93,7 @@ def update_profile():
             category="email_change",
         )
         flash(
-            f"Profile display name updated! A verification link has been sent to {new_email} "
+            f"Profile display name updated! A single-use verification link has been sent to {new_email} "
             f"(check Mail Outbox) to confirm your new email address.",
             "info",
         )
@@ -89,24 +107,46 @@ def update_profile():
 @account_bp.route("/change-password", methods=["POST"])
 @login_required
 def change_password():
-    """FR-6.1 Update password with current password verification."""
+    """
+    FR-6.1 & Lab 3.7 Defense (Strict Endpoint Isolation):
+    - Operates EXCLUSIVELY on `g.user` (the authenticated session owner).
+    - Ignores any client-supplied `username` or `user_id` parameter (prevents dual-use endpoint ATO).
+    - Always requires verifying `current_password`.
+    - Revokes all other active sessions upon password change.
+    """
+    if "username" in request.form or "user_id" in request.form:
+        submitted_target = (request.form.get("username") or request.form.get("user_id") or "").strip()
+        if submitted_target and submitted_target.lower() != g.user.username.lower():
+            log_security_event(
+                "DUAL_USE_ATO_BLOCKED",
+                f"Blocked attempt to change password for target='{submitted_target}' via self-service endpoint",
+                severity="CRITICAL",
+                username=g.user.username,
+            )
+
     current_password = request.form.get("current_password") or ""
     new_password = request.form.get("new_password") or ""
     confirm_password = request.form.get("confirm_password") or ""
 
     if not g.user.check_password(current_password):
         flash("Your current password was entered incorrectly.", "danger")
-        return redirect(url_for("account.profile"))
+        return redirect(url_for("account.profile")), 400
 
-    if len(new_password) < 8:
-        flash("New password must be at least 8 characters long.", "danger")
-        return redirect(url_for("account.profile"))
+    if len(new_password) < 8 or len(new_password) > 128:
+        flash("New password must be between 8 and 128 characters long.", "danger")
+        return redirect(url_for("account.profile")), 400
 
     if new_password != confirm_password:
         flash("New password and confirmation do not match.", "danger")
-        return redirect(url_for("account.profile"))
+        return redirect(url_for("account.profile")), 400
 
     g.user.set_password(new_password)
     db.session.commit()
-    flash("Your password has been changed successfully.", "success")
+
+    # Invalidate any stolen sessions and re-issue a fresh session for current user
+    revoke_all_user_sessions(g.user.id)
+    create_server_session(g.user)
+
+    log_security_event("PASSWORD_CHANGED", "User changed password and rotated sessions", username=g.user.username)
+    flash("Your password has been changed successfully and other active sessions were signed out.", "success")
     return redirect(url_for("account.profile"))

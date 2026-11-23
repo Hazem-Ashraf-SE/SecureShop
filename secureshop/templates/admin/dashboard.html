@@ -61,6 +61,7 @@
                 {% for u in users %}
                 <tr>
                     <form method="POST" action="{{ url_for('admin.update_user', user_id=u.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <td>#{{ u.id }}</td>
                         <td>
                             <div class="fw-semibold">{{ u.username }}</div>
@@ -89,6 +90,7 @@
                     </form>
                     {% if u.id != current_user.id %}
                     <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" class="d-inline ms-1">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-outline-danger btn-sm"
                                 onclick="return confirm('Delete user {{ u.username }}?');">
                             <i class="bi bi-trash"></i>
@@ -116,6 +118,7 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('admin.create_product') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-2">
                         <label class="form-label small fw-semibold">Product Title</label>
                         <input type="text" name="name" class="form-control form-control-sm" required>
@@ -164,6 +167,7 @@
                 {% for p in products %}
                 <div class="border rounded p-3 mb-3 bg-white">
                     <form method="POST" action="{{ url_for('admin.update_product', product_id=p.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="row g-2 align-items-center mb-2">
                             <div class="col-md-5">
                                 <label class="form-label small text-muted mb-0">Title</label>
@@ -198,6 +202,7 @@
                                 <button type="submit" class="btn btn-primary btn-sm">Update Product</button>
                     </form>
                     <form method="POST" action="{{ url_for('admin.delete_product', product_id=p.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-outline-danger btn-sm"
                                 onclick="return confirm('Delete product {{ p.name }}?');">
                             Delete
@@ -225,6 +230,7 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('admin.create_coupon') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-2">
                         <label class="form-label small fw-semibold">Coupon Code</label>
                         <input type="text" name="code" class="form-control form-control-sm text-uppercase" placeholder="CYBER50" required>
@@ -317,11 +323,13 @@
                             </td>
                             <td class="text-end">
                                 <form method="POST" action="{{ url_for('admin.toggle_coupon', coupon_id=c.id) }}" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm {% if c.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
                                         {% if c.is_active %}Deactivate{% else %}Activate{% endif %}
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ url_for('admin.delete_coupon', coupon_id=c.id) }}" class="d-inline ms-1">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
                                     </button>

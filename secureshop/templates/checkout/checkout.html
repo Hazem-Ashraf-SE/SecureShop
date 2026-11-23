@@ -46,6 +46,7 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('checkout.apply_coupon') }}" class="d-flex gap-2 mb-3">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="text" name="coupon_code" class="form-control"
                            placeholder="Enter coupon code (e.g. WELCOME10, SAVE25, VIP15)" required>
                     <button type="submit" class="btn btn-outline-primary text-nowrap px-4">
@@ -64,6 +65,7 @@
                                 ({% if c.discount_type == 'percent' %}{{ c.discount_value }}% off{% else %}${{ "%.2f"|format(c.discount_value) }} off{% endif %})
                             </span>
                             <form method="POST" action="{{ url_for('checkout.remove_coupon') }}" class="m-0">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="coupon_code" value="{{ c.code }}">
                                 <button type="submit" class="btn-close" style="font-size: 0.65rem;" title="Remove Coupon"></button>
                             </form>
@@ -117,6 +119,7 @@
 
                 {% if current_user.store_credit >= summary['final_total'] %}
                 <form method="POST" action="{{ url_for('checkout.process_checkout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-success btn-lg w-100">
                         <i class="bi bi-lock-fill me-2"></i>Pay with Store Credit (${{ "%.2f"|format(summary['final_total']) }})
                     </button>

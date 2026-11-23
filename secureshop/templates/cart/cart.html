@@ -50,6 +50,7 @@
                             <td class="fw-semibold">${{ "%.2f"|format(item.product.price) }}</td>
                             <td>
                                 <form method="POST" action="{{ url_for('cart.update_cart_item', item_id=item.id) }}" class="d-flex gap-1">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="number" name="quantity" class="form-control form-control-sm"
                                            value="{{ item.quantity }}" min="1" max="{{ item.product.stock_quantity }}" required>
                                     <button type="submit" class="btn btn-outline-primary btn-sm">Update</button>
@@ -58,6 +59,7 @@
                             <td class="fw-bold text-primary">${{ "%.2f"|format(item.line_total) }}</td>
                             <td class="text-end">
                                 <form method="POST" action="{{ url_for('cart.remove_cart_item', item_id=item.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm" title="Remove Item">
                                         <i class="bi bi-trash"></i>
                                     </button>

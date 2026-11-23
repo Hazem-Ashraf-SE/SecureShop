@@ -81,9 +81,12 @@
                                 <span class="badge bg-warning text-dark ms-1">ADMIN</span>
                             {% endif %}
                         </span>
-                        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-light btn-sm ms-2">
-                            <i class="bi bi-box-arrow-right me-1"></i>Logout
-                        </a>
+                        <form method="POST" action="{{ url_for('auth.logout') }}" class="d-inline ms-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-outline-light btn-sm">
+                                <i class="bi bi-box-arrow-right me-1"></i>Logout
+                            </button>
+                        </form>
                     {% else %}
                         <a href="{{ url_for('auth.login') }}"
                            class="btn btn-outline-light btn-sm {% if request.endpoint == 'auth.login' %}active{% endif %}">
@@ -130,6 +133,7 @@
                 </div>
                 <div class="col-md-6">
                     <form action="{{ url_for('shop.newsletter_subscribe') }}" method="POST" class="d-flex gap-2">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="next" value="{{ request.full_path }}">
                         <input type="email" name="email" class="form-control form-control-sm"
                                placeholder="Enter your email address (max 254 chars)" maxlength="254" required>
@@ -141,8 +145,8 @@
             </div>
             <hr class="border-secondary my-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center small text-secondary">
-                <span>&copy; 2026 SecureShop E-Commerce Platform — Task 1 Functional Requirements Build</span>
-                <span>Demo Accounts: <code>admin / AdminPass123!</code> &bull; <code>alice / CustomerPass123!</code></span>
+                <span>&copy; 2026 SecureShop E-Commerce Platform — Hardened Security Build</span>
+                <span>Security Controls: CSRF, CSP, HSTS, RBAC, Bcrypt, MFA &amp; ACID Checkout Enabled</span>
             </div>
         </div>
     </footer>

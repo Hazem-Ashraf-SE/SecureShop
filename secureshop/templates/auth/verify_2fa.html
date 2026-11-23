@@ -15,6 +15,7 @@
                 </p>
 
                 <form method="POST" action="{{ url_for('auth.verify_2fa') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold">6-Digit 2FA Verification Code (Email OTP or TOTP)</label>
                         <input type="text" name="otp_code" class="form-control form-control-lg text-center fw-bold letter-spacing-2"
